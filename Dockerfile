@@ -10,7 +10,8 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
+COPY internals/scripts/npmcheckversion.js internals/scripts/dependencies.js ./internals/scripts/
 RUN npm ci --include=dev
 
 COPY . .
