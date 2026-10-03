@@ -27,7 +27,7 @@
     "start:production": "npm run test && npm run build && npm run start:prod",
     "start:prod": "cross-env NODE_ENV=production node index.js",
     "test": "npm run lint:ris && npm run test:unit",
-    "security:audit": "npm audit --audit-level=high",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
     "test:unit": "cross-env NODE_ENV=test mocha --require @babel/register \"test/ris/**/*.test.js\" --exit",
     "db:seed:generate": "node internals/scripts/generate-database-seed.js",
     "db:seed:check": "node internals/scripts/generate-database-seed.js --check",

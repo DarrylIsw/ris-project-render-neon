@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 const PizZip = require('pizzip');
 const { DOMParser } = require('@xmldom/xmldom');
 const { LETTER_DOCUMENT_TEMPLATES, resolveLetterDocumentTemplate } = require('../../shared/letterDocumentTemplates');
@@ -29,6 +30,12 @@ const content = bytes => {
   const zip = new PizZip(bytes);
   const document = new DOMParser().parseFromString(zip.file('word/document.xml').asText(), 'text/xml');
   return { zip, document, text: Array.from(document.getElementsByTagName('w:t')).map(node => node.textContent).join(' ') };
+};
+const hasLibreOffice = () => {
+  const executable = findLibreOffice();
+  if ((executable.includes('/') || executable.includes('\\')) && !fs.existsSync(executable)) return false;
+  const check = spawnSync(executable, ['--version'], { stdio: 'ignore' });
+  return !check.error && check.status === 0;
 };
 
 describe('Word letter document integration', () => {
@@ -99,7 +106,7 @@ describe('Word letter document integration', () => {
 
   it('converts Word to a genuine PDF when LibreOffice is installed', async function pdfTest() {
     this.timeout(120000);
-    if (process.platform === 'win32' && !fs.existsSync(findLibreOffice())) this.skip();
+    if (!hasLibreOffice()) this.skip();
     const pdf = await renderLetterPdf(baseLetter());
     assert.strictEqual(pdf.subarray(0, 5).toString('ascii'), '%PDF-');
     assert.ok(pdf.length > 10000);
