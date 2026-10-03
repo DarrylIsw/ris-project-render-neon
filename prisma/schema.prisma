@@ -1,0 +1,1740 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ris_records {
+  domain     String   @db.VarChar(80)
+  entity_id  String   @db.VarChar(180)
+  payload    Json
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([domain, entity_id])
+}
+
+model ris_revision {
+  id         Int      @id
+  version    Int      @default(0)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model account_tokens {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  purpose     String    @db.VarChar(40)
+  token_hash  String    @unique
+  payload     Json      @default("{}")
+  expires_at  DateTime  @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model admin_assignments {
+  id                                         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id                                 String              @db.Uuid
+  admin_id                                   String              @db.Uuid
+  assigned_by                                String?             @db.Uuid
+  assigned_at                                DateTime            @default(now()) @db.Timestamptz(6)
+  ended_at                                   DateTime?           @db.Timestamptz(6)
+  users_admin_assignments_admin_idTousers    users               @relation("admin_assignments_admin_idTousers", fields: [admin_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_admin_assignments_assigned_byTousers users?              @relation("admin_assignments_assigned_byTousers", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  researcher_profiles                        researcher_profiles @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([profile_id, admin_id])
+}
+
+model admin_scopes {
+  code              admin_scope_type    @id
+  name              String              @unique @db.VarChar(120)
+  description       String?
+  user_admin_scopes user_admin_scopes[]
+}
+
+model applicant_profiles {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String?  @db.Uuid
+  name           String   @db.VarChar(180)
+  identifier     String?  @db.VarChar(80)
+  applicant_role String?  @db.VarChar(120)
+  applicant_kind String   @db.VarChar(80)
+  status         String?  @db.VarChar(80)
+  faculty        String?  @db.VarChar(180)
+  study_program  String?  @db.VarChar(180)
+  email          String?  @db.VarChar(320)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model budget_categories {
+  code               String               @id @db.VarChar(40)
+  name               String               @unique @db.VarChar(120)
+  position           Int                  @db.SmallInt
+  draft_budget_items draft_budget_items[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model draft_budget_items {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id          String             @db.Uuid
+  category_code     String?            @db.VarChar(40)
+  section_key       String?            @db.VarChar(128)
+  section_label     String?            @db.VarChar(180)
+  component         String             @db.VarChar(180)
+  item_name         String             @db.VarChar(220)
+  volume            Decimal            @db.Decimal(12, 2)
+  unit              String             @db.VarChar(80)
+  unit_price        Decimal            @db.Decimal(16, 2)
+  total_amount      Decimal?           @default(dbgenerated("round((volume * unit_price), 2)")) @db.Decimal(16, 2)
+  notes             String?
+  position          Int                @db.SmallInt
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime           @default(now()) @db.Timestamptz(6)
+  budget_categories budget_categories? @relation(fields: [category_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  research_drafts   research_drafts    @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([draft_id, category_code, position])
+  @@unique([draft_id, section_key, position])
+  @@index([draft_id, category_code], map: "draft_budget_items_draft_idx")
+}
+
+model draft_files {
+  id                             String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id                       String                          @db.Uuid
+  requirement_id                 String?                         @db.Uuid
+  category                       String                          @db.VarChar(100)
+  file_id                        String                          @db.Uuid
+  uploaded_by                    String?                         @db.Uuid
+  uploaded_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  research_drafts                research_drafts                 @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files                   stored_files                    @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  scheme_attachment_requirements scheme_attachment_requirements? @relation(fields: [requirement_id], references: [id], onUpdate: NoAction)
+  users                          users?                          @relation(fields: [uploaded_by], references: [id], onUpdate: NoAction)
+
+  @@unique([draft_id, category])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model draft_members {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id            String               @db.Uuid
+  role                member_role_type
+  member_type         member_type
+  profile_id          String?              @db.Uuid
+  user_id             String?              @db.Uuid
+  name                String               @db.VarChar(180)
+  identifier          String?              @db.VarChar(80)
+  nidn                String?              @db.VarChar(80)
+  nim                 String?              @db.VarChar(80)
+  study_program       String?              @db.VarChar(180)
+  faculty             String?              @db.VarChar(180)
+  orcid               String?              @db.VarChar(40)
+  email               String?              @db.VarChar(320)
+  position            Int                  @db.SmallInt
+  metadata            Json                 @default("{}")
+  research_drafts     research_drafts      @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  researcher_profiles researcher_profiles? @relation(fields: [profile_id], references: [id], onUpdate: NoAction)
+  users               users?               @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([draft_id, position])
+  @@index([profile_id], map: "draft_members_profile_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model draft_outputs {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id                String                 @db.Uuid
+  scheme_output_option_id String?                @db.Uuid
+  output_kind             output_kind_type
+  name                    String                 @db.VarChar(220)
+  category                String                 @db.VarChar(80)
+  description             String
+  configuration           Json                   @default("{}")
+  position                Int                    @db.SmallInt
+  created_at              DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime               @default(now()) @db.Timestamptz(6)
+  research_drafts         research_drafts        @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  scheme_output_options   scheme_output_options? @relation(fields: [scheme_output_option_id], references: [id], onUpdate: NoAction)
+  research_reports        research_reports[]
+
+  @@unique([draft_id, position])
+  @@index([draft_id, output_kind], map: "draft_outputs_draft_kind_idx")
+}
+
+model draft_project_sdgs {
+  project_id     String         @db.Uuid
+  sdg_id         Int            @db.SmallInt
+  draft_projects draft_projects @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sdg_goals      sdg_goals      @relation(fields: [sdg_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([project_id, sdg_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model draft_projects {
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id                 String               @unique @db.Uuid
+  title                    String
+  abstract                 String?
+  background               String?
+  objectives               String?
+  methodology              String?
+  target_tkt               Int?                 @db.SmallInt
+  rip_relation             String?              @db.VarChar(180)
+  research_center_relation String?              @db.VarChar(180)
+  research_center_other    String?              @db.VarChar(180)
+  integrated_to_teaching   Boolean?
+  course_name              String?              @db.VarChar(180)
+  academic_year            String?              @db.VarChar(20)
+  metadata                 Json                 @default("{}")
+  created_at               DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime             @default(now()) @db.Timestamptz(6)
+  draft_project_sdgs       draft_project_sdgs[]
+  research_drafts          research_drafts      @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model email_outbox {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient_user_id   String?                    @db.Uuid
+  recipient_email     String                     @db.VarChar(320)
+  subject             String                     @db.VarChar(240)
+  body_text           String?
+  body_html           String?
+  template_key        String?                    @db.VarChar(100)
+  notification_type   String                     @db.VarChar(100)
+  entity_type         String?                    @db.VarChar(100)
+  entity_id           String?                    @db.Uuid
+  action_path         String?
+  priority            notification_priority_type @default(normal)
+  delivery_mode       String                     @default("immediate") @db.VarChar(20)
+  deduplication_key   String                     @unique @db.VarChar(500)
+  source_event_id     String?                    @db.VarChar(255)
+  payload             Json                       @default("{}")
+  status              outbox_status_type         @default(queued)
+  attempts            Int                        @default(0) @db.SmallInt
+  available_at        DateTime                   @default(now()) @db.Timestamptz(6)
+  locked_at           DateTime?                  @db.Timestamptz(6)
+  worker_id           String?                    @db.VarChar(120)
+  sent_at             DateTime?                  @db.Timestamptz(6)
+  error_message       String?
+  provider            String?                    @db.VarChar(40)
+  provider_message_id String?                    @db.VarChar(500)
+  last_attempt_at     DateTime?                  @db.Timestamptz(6)
+  created_at          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                   @default(now()) @db.Timestamptz(6)
+  users               users?                     @relation(fields: [recipient_user_id], references: [id], onUpdate: NoAction)
+
+  @@index([recipient_user_id, created_at(sort: Desc)], map: "email_outbox_recipient_idx")
+  @@index([status, locked_at], map: "email_outbox_processing_lock_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model external_research {
+  id                                         String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                    String                        @db.Uuid
+  created_by                                 String                        @db.Uuid
+  activity_name                              String                        @db.VarChar(240)
+  research_title                             String
+  activity_year                              Int                           @db.SmallInt
+  activity_status                            String                        @db.VarChar(40)
+  activity_type                              String                        @db.VarChar(40)
+  role_in_research                           String                        @db.VarChar(40)
+  organizer_origin                           String?                       @db.VarChar(220)
+  funding_source                             String?                       @db.VarChar(220)
+  funding_amount                             Decimal                       @default(0) @db.Decimal(16, 2)
+  currency                                   String                        @default("IDR") @db.Char(3)
+  submission_status                          external_research_status_type @default(draft)
+  category                                   String                        @db.VarChar(80)
+  metadata                                   Json                          @default("{}")
+  archive_metadata                           Json                          @default("{}")
+  type_detail                                Json                          @default("{}")
+  review_notes                               String?
+  reviewed_by                                String?                       @db.Uuid
+  reviewed_at                                DateTime?                     @db.Timestamptz(6)
+  version                                    Int                           @default(1)
+  submitted_at                               DateTime?                     @db.Timestamptz(6)
+  validated_at                               DateTime?                     @db.Timestamptz(6)
+  archived_at                                DateTime?                     @db.Timestamptz(6)
+  created_at                                 DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime                      @default(now()) @db.Timestamptz(6)
+  users_external_research_created_byTousers  users                         @relation("external_research_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  users_external_research_reviewed_byTousers users?                        @relation("external_research_reviewed_byTousers", fields: [reviewed_by], references: [id], onUpdate: NoAction)
+  users_external_research_user_idTousers     users                         @relation("external_research_user_idTousers", fields: [user_id], references: [id], onUpdate: NoAction)
+  external_research_files                    external_research_files[]
+  external_research_history                  external_research_history[]
+  external_research_members                  external_research_members[]
+  external_research_outputs                  external_research_outputs[]
+  external_research_reviews                  external_research_reviews[]
+  external_research_sdgs                     external_research_sdgs[]
+
+  @@index([user_id, submission_status, updated_at(sort: Desc)], map: "external_research_owner_status_idx")
+  @@index([submission_status, submitted_at(sort: Desc)], map: "external_research_status_idx")
+}
+
+model external_research_files {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_research_id String            @db.Uuid
+  file_type            String            @db.VarChar(100)
+  display_name         String?           @db.VarChar(180)
+  file_id              String            @db.Uuid
+  uploaded_by          String?           @db.Uuid
+  uploaded_at          DateTime          @default(now()) @db.Timestamptz(6)
+  external_research    external_research @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files         stored_files      @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  users                users?            @relation(fields: [uploaded_by], references: [id], onUpdate: NoAction)
+}
+
+model external_research_members {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_research_id String              @db.Uuid
+  role                 member_role_type    @default(anggota)
+  member_type          member_type
+  profile_id           String?             @db.Uuid
+  name                 String              @db.VarChar(180)
+  nidn                 String?             @db.VarChar(80)
+  nim                  String?             @db.VarChar(80)
+  study_program        String?             @db.VarChar(180)
+  faculty              String?             @db.VarChar(180)
+  orcid                String?             @db.VarChar(40)
+  position             Int                 @db.SmallInt
+  external_research    external_research   @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  researcher_profiles  researcher_profiles? @relation(fields: [profile_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([external_research_id, position])
+  @@index([profile_id], map: "external_research_members_profile_idx")
+}
+
+model external_research_history {
+  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_research_id String                         @db.Uuid
+  old_status           external_research_status_type?
+  new_status           external_research_status_type
+  note                 String?
+  changed_by           String?                        @db.Uuid
+  changed_at           DateTime                       @default(now()) @db.Timestamptz(6)
+  users                users?                         @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  external_research    external_research              @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model external_research_outputs {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_research_id String            @db.Uuid
+  output_type          String            @db.VarChar(80)
+  title                String            @db.VarChar(240)
+  year                 Int?              @db.SmallInt
+  description          String?
+  link                 String?
+  file_id              String?           @db.Uuid
+  position             Int               @db.SmallInt
+  external_research    external_research @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files         stored_files?     @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+
+  @@unique([external_research_id, position])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model external_research_reviews {
+  id                   String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  external_research_id String                        @db.Uuid
+  reviewer_id          String                        @db.Uuid
+  decision             external_research_status_type
+  notes                String?
+  checklist            Json                          @default("{}")
+  reviewed_at          DateTime                      @default(now()) @db.Timestamptz(6)
+  external_research    external_research             @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                users                         @relation(fields: [reviewer_id], references: [id], onUpdate: NoAction)
+}
+
+model external_research_sdgs {
+  external_research_id String            @db.Uuid
+  sdg_id               Int               @db.SmallInt
+  external_research    external_research @relation(fields: [external_research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sdg_goals            sdg_goals         @relation(fields: [sdg_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([external_research_id, sdg_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model funded_research {
+  id                                                                         String                      @id @db.Uuid
+  scheme_id                                                                  String                      @db.Uuid
+  lead_user_id                                                               String                      @db.Uuid
+  title                                                                      String
+  status                                                                     String                      @default("active") @db.VarChar(40)
+  funded_amount                                                              Decimal                     @db.Decimal(16, 2)
+  started_at                                                                 DateTime?                   @db.Date
+  ended_at                                                                   DateTime?                   @db.Date
+  metadata                                                                   Json                        @default("{}")
+  created_by                                                                 String                      @db.Uuid
+  version                                                                    Int                         @default(1)
+  archived_at                                                                DateTime?                   @db.Timestamptz(6)
+  created_at                                                                 DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                                 DateTime                    @default(now()) @db.Timestamptz(6)
+  research_drafts_funded_research_id_scheme_id_lead_user_idToresearch_drafts research_drafts             @relation("funded_research_id_scheme_id_lead_user_idToresearch_drafts", fields: [id, scheme_id, lead_user_id], references: [id, scheme_id, user_id], onDelete: NoAction, onUpdate: NoAction, map: "funded_proposal_identity")
+  users_funded_research_created_byTousers                                    users                       @relation("funded_research_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  research_drafts_funded_research_idToresearch_drafts                        research_drafts             @relation("funded_research_idToresearch_drafts", fields: [id], references: [id], onUpdate: NoAction)
+  users_funded_research_lead_user_idTousers                                  users                       @relation("funded_research_lead_user_idTousers", fields: [lead_user_id], references: [id], onUpdate: NoAction)
+  schemes                                                                    schemes                     @relation(fields: [scheme_id], references: [id], onUpdate: NoAction)
+  funded_review_assignments                                                  funded_review_assignments[]
+  letter_requests                                                            letter_requests[]
+  notifications                                                              notifications[]
+  research_contracts                                                         research_contracts?
+  research_logbooks                                                          research_logbooks[]
+  research_monev                                                             research_monev[]
+  research_reports                                                           research_reports[]
+
+  @@unique([id, scheme_id, lead_user_id], map: "funded_research_identity_unique")
+  @@index([lead_user_id, status, updated_at(sort: Desc)], map: "funded_research_lead_status_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model funded_review_assignments {
+  id                                                                                 String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  research_id                                                                        String                          @db.Uuid
+  target_type                                                                        funded_review_target_type
+  monev_id                                                                           String?                         @db.Uuid
+  report_id                                                                          String?                         @db.Uuid
+  reviewer_id                                                                        String                          @db.Uuid
+  review_round                                                                       Int                             @default(1)
+  status                                                                             reviewer_assignment_status_type @default(assigned)
+  assigned_by                                                                        String                          @db.Uuid
+  assigned_at                                                                        DateTime                        @default(now()) @db.Timestamptz(6)
+  due_at                                                                             DateTime?                       @db.Timestamptz(6)
+  started_at                                                                         DateTime?                       @db.Timestamptz(6)
+  submitted_at                                                                       DateTime?                       @db.Timestamptz(6)
+  revoked_at                                                                         DateTime?                       @db.Timestamptz(6)
+  revoked_by                                                                         String?                         @db.Uuid
+  revocation_reason                                                                  String?
+  users_funded_review_assignments_assigned_byTousers                                 users                           @relation("funded_review_assignments_assigned_byTousers", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  research_monev_funded_review_assignments_monev_idToresearch_monev                  research_monev?                 @relation("funded_review_assignments_monev_idToresearch_monev", fields: [monev_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  research_reports_funded_review_assignments_report_idToresearch_reports             research_reports?               @relation("funded_review_assignments_report_idToresearch_reports", fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  funded_research                                                                    funded_research                 @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_funded_review_assignments_reviewer_idTousers                                 users                           @relation("funded_review_assignments_reviewer_idTousers", fields: [reviewer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_funded_review_assignments_revoked_byTousers                                  users?                          @relation("funded_review_assignments_revoked_byTousers", fields: [revoked_by], references: [id], onUpdate: NoAction)
+  research_monev_funded_review_assignments_monev_id_research_idToresearch_monev      research_monev?                 @relation("funded_review_assignments_monev_id_research_idToresearch_monev", fields: [monev_id, research_id], references: [id, research_id], onDelete: NoAction, onUpdate: NoAction, map: "funded_review_monev_owner")
+  research_reports_funded_review_assignments_report_id_research_idToresearch_reports research_reports?               @relation("funded_review_assignments_report_id_research_idToresearch_reports", fields: [report_id, research_id], references: [id, research_id], onDelete: NoAction, onUpdate: NoAction, map: "funded_review_report_owner")
+  funded_reviewer_reminders                                                          funded_reviewer_reminders[]
+  funded_reviews                                                                     funded_reviews?
+
+  @@index([research_id, target_type, assigned_at(sort: Desc)], map: "funded_review_assignments_research_target_idx")
+  @@index([reviewer_id, status, due_at], map: "funded_review_assignments_reviewer_status_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model funded_review_score_details {
+  review_id      String         @db.Uuid
+  criteria_code  String         @db.VarChar(80)
+  criteria_label String         @db.VarChar(255)
+  criteria_group String         @db.VarChar(180)
+  weight         Decimal        @db.Decimal(6, 2)
+  score          Decimal        @db.Decimal(6, 2)
+  weighted_score Decimal        @db.Decimal(8, 4)
+  notes          String?
+  funded_reviews funded_reviews @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([review_id, criteria_code])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model funded_reviewer_reminders {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id             String                    @db.Uuid
+  sent_by                   String                    @db.Uuid
+  channel                   String                    @default("both") @db.VarChar(20)
+  message                   String?
+  sent_at                   DateTime                  @default(now()) @db.Timestamptz(6)
+  funded_review_assignments funded_review_assignments @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                     users                     @relation(fields: [sent_by], references: [id], onUpdate: NoAction)
+
+  @@index([assignment_id, sent_at(sort: Desc)], map: "funded_reviewer_reminders_assignment_sent_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model funded_reviews {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id               String                        @unique @db.Uuid
+  recommendation              review_recommendation_type
+  total_score                 Decimal                       @db.Decimal(6, 2)
+  substance_notes             String
+  technical_notes             String
+  follow_up_notes             String
+  submitted_at                DateTime                      @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  funded_review_score_details funded_review_score_details[]
+  funded_review_assignments   funded_review_assignments     @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model funding_letters {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id        String          @unique @db.Uuid
+  letter_number   String          @unique @db.VarChar(180)
+  file_id         String?         @db.Uuid
+  file_name       String?         @db.VarChar(255)
+  signed_by       String          @db.Uuid
+  signer_name     String          @db.VarChar(180)
+  signer_role     String          @db.VarChar(120)
+  issued_at       DateTime        @db.Timestamptz(6)
+  signed_at       DateTime        @db.Timestamptz(6)
+  research_drafts research_drafts @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files    stored_files?   @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  users           users           @relation(fields: [signed_by], references: [id], onUpdate: NoAction)
+}
+
+model generated_letters {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id        String          @unique @db.Uuid
+  letter_number    String          @unique @db.VarChar(180)
+  file_id          String?         @db.Uuid
+  file_name        String          @db.VarChar(255)
+  file_url         String?
+  content_snapshot String?
+  generated_by     String          @db.Uuid
+  generated_at     DateTime        @default(now()) @db.Timestamptz(6)
+  stored_files     stored_files?   @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  users            users           @relation(fields: [generated_by], references: [id], onUpdate: NoAction)
+  letter_requests  letter_requests @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model idempotency_keys {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  operation       String    @db.VarChar(100)
+  idempotency_key String    @db.VarChar(180)
+  request_hash    String    @db.VarChar(64)
+  response_status Int?      @db.SmallInt
+  response_body   Json?
+  locked_at       DateTime? @db.Timestamptz(6)
+  completed_at    DateTime? @db.Timestamptz(6)
+  expires_at      DateTime  @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, operation, idempotency_key])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_applicants {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id       String          @db.Uuid
+  user_id         String?         @db.Uuid
+  name            String          @db.VarChar(180)
+  identifier      String?         @db.VarChar(80)
+  applicant_role  String?         @db.VarChar(120)
+  applicant_kind  String?         @db.VarChar(80)
+  status          String?         @db.VarChar(80)
+  faculty         String?         @db.VarChar(180)
+  study_program   String?         @db.VarChar(180)
+  email           String?         @db.VarChar(320)
+  is_primary      Boolean         @default(false)
+  position        Int             @db.SmallInt
+  letter_requests letter_requests @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users?          @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@unique([letter_id, position])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_definitions {
+  id                                         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                       String            @default("") @db.VarChar(240)
+  description                                String            @default("")
+  letter_type                                String            @db.VarChar(80)
+  purpose                                    String?           @db.VarChar(120)
+  is_active                                  Boolean           @default(false)
+  lifecycle_status                           String            @default("draft") @db.VarChar(20)
+  master_version                             Int?
+  pending_draft                              Json?
+  deleted_at                                 DateTime?         @db.Timestamptz(6)
+  deleted_by                                 String?           @db.Uuid
+  version                                    Int               @default(1)
+  template_name                              String            @default("") @db.VarChar(240)
+  template_content                           String            @default("")
+  fields                                     Json              @default("[]")
+  updated_by                                 String?           @db.Uuid
+  created_at                                 DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime          @default(now()) @db.Timestamptz(6)
+  users_letter_definitions_deleted_byTousers users?            @relation("letter_definitions_deleted_byTousers", fields: [deleted_by], references: [id], onUpdate: NoAction)
+  users_letter_definitions_updated_byTousers users?            @relation("letter_definitions_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction)
+  letter_requests                            letter_requests[]
+
+  @@index([is_active, name], map: "letter_definitions_active_idx")
+}
+
+model letter_files {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id       String          @db.Uuid
+  file_type       String          @db.VarChar(100)
+  category        String          @db.VarChar(100)
+  file_id         String          @db.Uuid
+  uploaded_at     DateTime        @default(now()) @db.Timestamptz(6)
+  stored_files    stored_files    @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  letter_requests letter_requests @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_master_templates {
+  id               Int      @id @default(1) @db.SmallInt
+  name             String   @default("Master Template Surat") @db.VarChar(240)
+  version          Int      @default(1)
+  template_content String
+  fields           Json
+  updated_by       String?  @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  users            users?   @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_prechecks {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id         String          @db.Uuid
+  status            String          @db.VarChar(30)
+  errors            Json            @default("[]")
+  notes             String?
+  checked_by        String?         @db.Uuid
+  checked_by_system Boolean         @default(false)
+  checked_at        DateTime        @default(now()) @db.Timestamptz(6)
+  users             users?          @relation(fields: [checked_by], references: [id], onUpdate: NoAction)
+  letter_requests   letter_requests @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_request_fields {
+  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  template_id              String                   @db.Uuid
+  field_key                String                   @db.VarChar(120)
+  field_label              String                   @db.VarChar(240)
+  field_type               String                   @db.VarChar(30)
+  is_required              Boolean                  @default(false)
+  placeholder              String?                  @db.VarChar(300)
+  help_text                String?
+  options                  Json                     @default("[]")
+  position                 Int                      @db.SmallInt
+  created_at               DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                 @default(now()) @db.Timestamptz(6)
+  letter_request_templates letter_request_templates @relation(fields: [template_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  letter_request_values    letter_request_values[]
+
+  @@unique([id, template_id])
+  @@unique([template_id, field_key])
+  @@unique([template_id, position])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_request_templates {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id             String                  @unique @db.Uuid
+  template_name         String                  @db.VarChar(240)
+  content_template      String
+  template_format       String                  @default("docx") @db.VarChar(20)
+  version               Int                     @default(1)
+  configured_by         String                  @db.Uuid
+  configured_at         DateTime                @default(now()) @db.Timestamptz(6)
+  published_at          DateTime?               @db.Timestamptz(6)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  letter_request_fields letter_request_fields[]
+  users                 users                   @relation(fields: [configured_by], references: [id], onUpdate: NoAction)
+  letter_requests       letter_requests         @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  letter_request_values letter_request_values[]
+
+  @@unique([id, letter_id])
+}
+
+model letter_request_values {
+  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id                String                   @db.Uuid
+  template_id              String                   @db.Uuid
+  field_id                 String                   @db.Uuid
+  field_value              Json                     @default("null")
+  submitted_by             String                   @db.Uuid
+  submitted_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                 @default(now()) @db.Timestamptz(6)
+  letter_request_fields    letter_request_fields    @relation(fields: [field_id, template_id], references: [id, template_id], onDelete: Cascade, onUpdate: NoAction)
+  letter_requests          letter_requests          @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                    users                    @relation(fields: [submitted_by], references: [id], onUpdate: NoAction)
+  letter_request_templates letter_request_templates @relation(fields: [template_id, letter_id], references: [id, letter_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([letter_id, field_id])
+  @@index([letter_id, submitted_at(sort: Desc)], map: "letter_request_values_letter_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_requests {
+  id                                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                    String                    @db.Uuid
+  created_by                                 String                    @db.Uuid
+  research_id                                String?                   @db.Uuid
+  definition_id                              String?                   @db.Uuid
+  definition_version                         Int?
+  definition_name                            String?                   @db.VarChar(240)
+  letter_type                                String                    @db.VarChar(80)
+  purpose                                    String?                   @db.VarChar(120)
+  custom_name                                String?                   @db.VarChar(240)
+  status                                     letter_status_type        @default(draft)
+  auto_fill_snapshot                         Json                      @default("{}")
+  form_data                                  Json                      @default("{}")
+  letter_number                              String?                   @db.VarChar(180)
+  generated_file_id                          String?                   @db.Uuid
+  generated_file_url                         String?
+  version                                    Int                       @default(1)
+  submitted_at                               DateTime?                 @db.Timestamptz(6)
+  accepted_at                                DateTime?                 @db.Timestamptz(6)
+  accepted_by                                String?                   @db.Uuid
+  configured_at                              DateTime?                 @db.Timestamptz(6)
+  configured_by                              String?                   @db.Uuid
+  data_submitted_at                          DateTime?                 @db.Timestamptz(6)
+  generated_at                               DateTime?                 @db.Timestamptz(6)
+  archived_at                                DateTime?                 @db.Timestamptz(6)
+  created_at                                 DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime                  @default(now()) @db.Timestamptz(6)
+  generated_letters                          generated_letters?
+  letter_applicants                          letter_applicants[]
+  letter_files                               letter_files[]
+  letter_prechecks                           letter_prechecks[]
+  letter_request_templates                   letter_request_templates?
+  letter_request_values                      letter_request_values[]
+  users_letter_requests_accepted_byTousers   users?                    @relation("letter_requests_accepted_byTousers", fields: [accepted_by], references: [id], onUpdate: NoAction)
+  users_letter_requests_configured_byTousers users?                    @relation("letter_requests_configured_byTousers", fields: [configured_by], references: [id], onUpdate: NoAction)
+  users_letter_requests_created_byTousers    users                     @relation("letter_requests_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  letter_definitions                         letter_definitions?       @relation(fields: [definition_id], references: [id], onUpdate: NoAction)
+  stored_files                               stored_files?             @relation(fields: [generated_file_id], references: [id], onUpdate: NoAction)
+  funded_research                            funded_research?          @relation(fields: [research_id], references: [id], onUpdate: NoAction)
+  users_letter_requests_user_idTousers       users                     @relation("letter_requests_user_idTousers", fields: [user_id], references: [id], onUpdate: NoAction)
+  letter_reviews                             letter_reviews[]
+  letter_status_history                      letter_status_history[]
+
+  @@index([user_id, status, updated_at(sort: Desc)], map: "letter_requests_owner_status_idx")
+  @@index([research_id, created_at(sort: Desc)], map: "letter_requests_research_idx")
+  @@index([status, submitted_at(sort: Desc)], map: "letter_requests_status_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model letter_reviews {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id       String          @db.Uuid
+  reviewer_id     String          @db.Uuid
+  decision        String          @db.VarChar(40)
+  notes           String?
+  checklist       Json            @default("{}")
+  reviewed_at     DateTime        @default(now()) @db.Timestamptz(6)
+  letter_requests letter_requests @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users           @relation(fields: [reviewer_id], references: [id], onUpdate: NoAction)
+}
+
+model letter_status_history {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  letter_id       String              @db.Uuid
+  old_status      letter_status_type?
+  new_status      letter_status_type
+  note            String?
+  changed_by      String?             @db.Uuid
+  changed_at      DateTime            @default(now()) @db.Timestamptz(6)
+  users           users?              @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  letter_requests letter_requests     @relation(fields: [letter_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model logbook_files {
+  logbook_id        String            @db.Uuid
+  file_id           String            @db.Uuid
+  stored_files      stored_files      @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  research_logbooks research_logbooks @relation(fields: [logbook_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([logbook_id, file_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                 String                     @db.Uuid
+  from_user_id                            String?                    @db.Uuid
+  notification_type                       String                     @db.VarChar(100)
+  priority                                notification_priority_type @default(normal)
+  title                                   String                     @db.VarChar(220)
+  message                                 String
+  entity_type                             String?                    @db.VarChar(100)
+  entity_id                               String?                    @db.Uuid
+  research_id                             String?                    @db.Uuid
+  action_path                             String?
+  action_label                            String?                    @db.VarChar(100)
+  manager_mode                            String?                    @db.VarChar(20)
+  is_read                                 Boolean                    @default(false)
+  read_at                                 DateTime?                  @db.Timestamptz(6)
+  expires_at                              DateTime?                  @db.Timestamptz(6)
+  created_at                              DateTime                   @default(now()) @db.Timestamptz(6)
+  users_notifications_from_user_idTousers users?                     @relation("notifications_from_user_idTousers", fields: [from_user_id], references: [id], onUpdate: NoAction)
+  funded_research                         funded_research?           @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_notifications_user_idTousers      users                      @relation("notifications_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([entity_type, entity_id], map: "notifications_entity_idx")
+  @@index([user_id, is_read, created_at(sort: Desc)], map: "notifications_user_unread_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model previous_ethics_clearances {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?       @db.Uuid
+  applicant_name   String?       @db.VarChar(180)
+  clearance_number String        @unique @db.VarChar(160)
+  research_title   String
+  issued_at        DateTime      @db.Date
+  expiry_date      DateTime      @db.Date
+  file_id          String?       @db.Uuid
+  stored_files     stored_files? @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  users            users?        @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model proposal_decisions {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id        String              @db.Uuid
+  decision_round  Int                 @default(1)
+  decision        final_decision_type
+  is_final        Boolean?            @default(dbgenerated("(decision = ANY (ARRAY['funded'::final_decision_type, 'rejected'::final_decision_type]))"))
+  notes           String?
+  decided_by      String              @db.Uuid
+  signer_name     String              @db.VarChar(180)
+  signer_role     String              @db.VarChar(120)
+  decided_at      DateTime            @default(now()) @db.Timestamptz(6)
+  users           users               @relation(fields: [decided_by], references: [id], onUpdate: NoAction)
+  research_drafts research_drafts     @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([draft_id, decision_round])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model proposal_submissions {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id             String                 @db.Uuid
+  revision_number      Int                    @default(1)
+  snapshot             Json
+  submitted_by         String                 @db.Uuid
+  submitted_at         DateTime               @default(now()) @db.Timestamptz(6)
+  research_drafts      research_drafts        @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                users                  @relation(fields: [submitted_by], references: [id], onUpdate: NoAction)
+  reviewer_assignments reviewer_assignments[]
+
+  @@unique([draft_id, revision_number])
+}
+
+model proposal_verifications {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id        String                   @db.Uuid
+  status          verification_status_type
+  checklist       Json                     @default("{}")
+  notes           String?
+  verified_by     String                   @db.Uuid
+  verified_at     DateTime                 @default(now()) @db.Timestamptz(6)
+  research_drafts research_drafts          @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users                    @relation(fields: [verified_by], references: [id], onUpdate: NoAction)
+
+  @@index([draft_id, verified_at(sort: Desc)], map: "proposal_verifications_draft_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model report_reviews {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_id        String             @db.Uuid
+  decision         report_status_type
+  notes            String?
+  reviewer_id      String             @db.Uuid
+  reviewed_at      DateTime           @default(now()) @db.Timestamptz(6)
+  research_reports research_reports   @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users              @relation(fields: [reviewer_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model research_contracts {
+  id                                                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  research_id                                                    String               @unique @db.Uuid
+  status                                                         contract_status_type @default(unsigned)
+  template_file_id                                               String?              @db.Uuid
+  signed_file_id                                                 String?              @db.Uuid
+  template_name                                                  String?              @db.VarChar(255)
+  signed_by_user_at                                              DateTime?            @db.Timestamptz(6)
+  accepted_by                                                    String?              @db.Uuid
+  accepted_at                                                    DateTime?            @db.Timestamptz(6)
+  revision_notes                                                 String?
+  version                                                        Int                  @default(1)
+  created_at                                                     DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime             @default(now()) @db.Timestamptz(6)
+  users                                                          users?               @relation(fields: [accepted_by], references: [id], onUpdate: NoAction)
+  funded_research                                                funded_research      @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files_research_contracts_signed_file_idTostored_files   stored_files?        @relation("research_contracts_signed_file_idTostored_files", fields: [signed_file_id], references: [id], onUpdate: NoAction)
+  stored_files_research_contracts_template_file_idTostored_files stored_files?        @relation("research_contracts_template_file_idTostored_files", fields: [template_file_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model research_drafts {
+  id                                                                         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                                                    String                   @db.Uuid
+  scheme_id                                                                  String                   @db.Uuid
+  status                                                                     proposal_status_type     @default(draft)
+  current_step                                                               Int                      @default(1) @db.SmallInt
+  requested_budget                                                           Decimal?                 @db.Decimal(16, 2)
+  budget_sections                                                            Json                     @default("[]")
+  payload                                                                    Json                     @default("{}")
+  archive_metadata                                                           Json                     @default("{}")
+  created_by                                                                 String                   @db.Uuid
+  version                                                                    Int                      @default(1)
+  last_saved_at                                                              DateTime?                @db.Timestamptz(6)
+  submitted_at                                                               DateTime?                @db.Timestamptz(6)
+  reviewed_at                                                                DateTime?                @db.Timestamptz(6)
+  decided_at                                                                 DateTime?                @db.Timestamptz(6)
+  archived_at                                                                DateTime?                @db.Timestamptz(6)
+  archived_by                                                                String?                  @db.Uuid
+  created_at                                                                 DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                                                                 DateTime                 @default(now()) @db.Timestamptz(6)
+  draft_budget_items                                                         draft_budget_items[]
+  draft_files                                                                draft_files[]
+  draft_members                                                              draft_members[]
+  draft_outputs                                                              draft_outputs[]
+  draft_projects                                                             draft_projects?
+  funded_research_funded_research_id_scheme_id_lead_user_idToresearch_drafts funded_research?         @relation("funded_research_id_scheme_id_lead_user_idToresearch_drafts")
+  funded_research_funded_research_idToresearch_drafts                        funded_research?         @relation("funded_research_idToresearch_drafts")
+  funding_letters                                                            funding_letters?
+  proposal_decisions                                                         proposal_decisions[]
+  proposal_submissions                                                       proposal_submissions[]
+  proposal_verifications                                                     proposal_verifications[]
+  users_research_drafts_archived_byTousers                                   users?                   @relation("research_drafts_archived_byTousers", fields: [archived_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users_research_drafts_created_byTousers                                    users                    @relation("research_drafts_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  schemes                                                                    schemes                  @relation(fields: [scheme_id], references: [id], onUpdate: NoAction)
+  users_research_drafts_user_idTousers                                       users                    @relation("research_drafts_user_idTousers", fields: [user_id], references: [id], onUpdate: NoAction)
+  reviewer_assignments                                                       reviewer_assignments[]
+
+  @@unique([id, scheme_id, user_id])
+  @@index([user_id, status, updated_at(sort: Desc)], map: "research_drafts_owner_status_idx")
+  @@index([scheme_id, status, submitted_at(sort: Desc)], map: "research_drafts_scheme_status_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model research_logbooks {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  research_id     String          @db.Uuid
+  activity_date   DateTime        @db.Date
+  start_time      DateTime?       @db.Time(6)
+  end_time        DateTime?       @db.Time(6)
+  description     String
+  payload         Json            @default("{}")
+  created_by      String          @db.Uuid
+  version         Int             @default(1)
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @default(now()) @db.Timestamptz(6)
+  logbook_files   logbook_files[]
+  users           users           @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  funded_research funded_research @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([research_id, activity_date(sort: Desc)], map: "research_logbooks_research_date_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model research_monev {
+  id                                                                                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  research_id                                                                              String                      @db.Uuid
+  period_id                                                                                String                      @db.Uuid
+  period_label                                                                             String                      @db.VarChar(180)
+  status                                                                                   report_status_type          @default(draft)
+  payload                                                                                  Json                        @default("{}")
+  evaluated_by                                                                             String?                     @db.Uuid
+  published_at                                                                             DateTime?                   @db.Timestamptz(6)
+  version                                                                                  Int                         @default(1)
+  created_at                                                                               DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                                               DateTime                    @default(now()) @db.Timestamptz(6)
+  funded_review_assignments_funded_review_assignments_monev_idToresearch_monev             funded_review_assignments[] @relation("funded_review_assignments_monev_idToresearch_monev")
+  funded_review_assignments_funded_review_assignments_monev_id_research_idToresearch_monev funded_review_assignments[] @relation("funded_review_assignments_monev_id_research_idToresearch_monev")
+  users                                                                                    users?                      @relation(fields: [evaluated_by], references: [id], onUpdate: NoAction)
+  scheme_reporting_periods                                                                 scheme_reporting_periods    @relation(fields: [period_id], references: [id], onUpdate: NoAction)
+  funded_research                                                                          funded_research             @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  research_monev_files                                                                     research_monev_files[]
+
+  @@unique([id, research_id])
+  @@unique([research_id, period_id])
+}
+
+model research_monev_files {
+  monev_id       String         @db.Uuid
+  file_id        String         @db.Uuid
+  category       String         @default("evidence") @db.VarChar(100)
+  stored_files   stored_files   @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  research_monev research_monev @relation(fields: [monev_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([monev_id, file_id])
+}
+
+model research_report_files {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_id        String           @db.Uuid
+  file_id          String           @db.Uuid
+  category         String           @default("report") @db.VarChar(100)
+  uploaded_at      DateTime         @default(now()) @db.Timestamptz(6)
+  stored_files     stored_files     @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  research_reports research_reports @relation(fields: [report_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([report_id, file_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model research_reports {
+  id                                                                                          String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  research_id                                                                                 String                      @db.Uuid
+  period_id                                                                                   String                      @db.Uuid
+  output_id                                                                                   String?                     @db.Uuid
+  report_type                                                                                 report_type
+  report_period                                                                               String                      @db.VarChar(180)
+  status                                                                                      report_status_type          @default(draft)
+  payload                                                                                     Json                        @default("{}")
+  submitted_by                                                                                String?                     @db.Uuid
+  submitted_at                                                                                DateTime?                   @db.Timestamptz(6)
+  version                                                                                     Int                         @default(1)
+  created_at                                                                                  DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                                                                  DateTime                    @default(now()) @db.Timestamptz(6)
+  funded_review_assignments_funded_review_assignments_report_idToresearch_reports             funded_review_assignments[] @relation("funded_review_assignments_report_idToresearch_reports")
+  funded_review_assignments_funded_review_assignments_report_id_research_idToresearch_reports funded_review_assignments[] @relation("funded_review_assignments_report_id_research_idToresearch_reports")
+  report_reviews                                                                              report_reviews[]
+  research_report_files                                                                       research_report_files[]
+  draft_outputs                                                                               draft_outputs?              @relation(fields: [output_id], references: [id], onUpdate: NoAction)
+  scheme_reporting_periods                                                                    scheme_reporting_periods    @relation(fields: [period_id], references: [id], onUpdate: NoAction)
+  funded_research                                                                             funded_research             @relation(fields: [research_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                                                                                       users?                      @relation(fields: [submitted_by], references: [id], onUpdate: NoAction)
+
+  @@unique([id, research_id])
+  @@unique([research_id, period_id, output_id])
+  @@index([status, submitted_at(sort: Desc)], map: "research_reports_status_idx")
+}
+
+model researcher_documents {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id          String              @db.Uuid
+  document_type       String              @db.VarChar(80)
+  file_id             String              @db.Uuid
+  uploaded_by         String?             @db.Uuid
+  is_active           Boolean             @default(true)
+  uploaded_at         DateTime            @default(now()) @db.Timestamptz(6)
+  stored_files        stored_files        @relation(fields: [file_id], references: [id], onUpdate: NoAction)
+  researcher_profiles researcher_profiles @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users?              @relation(fields: [uploaded_by], references: [id], onUpdate: NoAction)
+
+  @@index([profile_id, document_type, is_active], map: "researcher_documents_profile_idx")
+}
+
+model researcher_expertise {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String                     @unique @db.VarChar(160)
+  researcher_expertise_map researcher_expertise_map[]
+}
+
+model researcher_expertise_map {
+  profile_id           String               @db.Uuid
+  expertise_id         String               @db.Uuid
+  is_primary           Boolean              @default(false)
+  researcher_expertise researcher_expertise @relation(fields: [expertise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  researcher_profiles  researcher_profiles  @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([profile_id, expertise_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model researcher_profiles {
+  id                                               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                          String                      @unique @db.Uuid
+  full_name                                        String                      @db.VarChar(180)
+  front_title                                      String?                     @db.VarChar(80)
+  back_title                                       String?                     @db.VarChar(80)
+  nidn                                             String?                     @db.VarChar(80)
+  nik                                              String?                     @db.VarChar(80)
+  nip                                              String?                     @db.VarChar(80)
+  birth_place                                      String?                     @db.VarChar(120)
+  birth_date                                       DateTime?                   @db.Date
+  gender                                           String?                     @db.VarChar(40)
+  nationality                                      String                      @default("Indonesia") @db.VarChar(80)
+  institution_email                                String?                     @db.VarChar(320)
+  alternate_email                                  String?                     @db.VarChar(320)
+  phone_number                                     String?                     @db.VarChar(40)
+  domicile_address                                 String?
+  correspondence_address                           String?
+  faculty                                          String?                     @db.VarChar(180)
+  study_program                                    String?                     @db.VarChar(180)
+  unit                                             String?                     @db.VarChar(180)
+  position                                         String?                     @db.VarChar(180)
+  functional_position                              String?                     @db.VarChar(180)
+  education_level                                  String?                     @db.VarChar(40)
+  employment_status                                String?                     @db.VarChar(80)
+  orcid                                            String?                     @db.VarChar(40)
+  google_scholar                                   String?
+  sinta_id                                         String?                     @db.VarChar(80)
+  sinta_score                                      Int                         @default(0)
+  research_count                                   Int                         @default(0)
+  last_research_year                               Int?                        @db.SmallInt
+  bank_name                                        String?                     @db.VarChar(120)
+  bank_account_number                              String?                     @db.VarChar(100)
+  bank_account_name                                String?                     @db.VarChar(180)
+  emergency_contact_name                           String?                     @db.VarChar(180)
+  emergency_contact_relation                       String?                     @db.VarChar(80)
+  emergency_contact_phone                          String?                     @db.VarChar(40)
+  profile_photo_file_id                            String?                     @db.Uuid
+  profile_status                                   profile_status_type         @default(draft)
+  verification_status                              verification_status_type    @default(unverified)
+  completeness                                     Int                         @default(0) @db.SmallInt
+  last_updated_by                                  String?                     @db.Uuid
+  version                                          Int                         @default(1)
+  created_at                                       DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                                       DateTime                    @default(now()) @db.Timestamptz(6)
+  admin_assignments                                admin_assignments[]
+  draft_members                                    draft_members[]
+  external_research_members                       external_research_members[]
+  researcher_documents                             researcher_documents[]
+  researcher_expertise_map                         researcher_expertise_map[]
+  users_researcher_profiles_last_updated_byTousers users?                      @relation("researcher_profiles_last_updated_byTousers", fields: [last_updated_by], references: [id], onUpdate: NoAction)
+  stored_files                                     stored_files?               @relation(fields: [profile_photo_file_id], references: [id], onUpdate: NoAction)
+  users_researcher_profiles_user_idTousers         users                       @relation("researcher_profiles_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  researcher_status_history                        researcher_status_history[]
+  researcher_verifications                         researcher_verifications[]
+
+  @@index([faculty])
+  @@index([profile_status, verification_status], map: "researcher_profiles_status_idx")
+}
+
+model researcher_status_history {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id          String               @db.Uuid
+  old_status          profile_status_type?
+  new_status          profile_status_type
+  reason              String?
+  changed_by          String?              @db.Uuid
+  changed_at          DateTime             @default(now()) @db.Timestamptz(6)
+  users               users?               @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  researcher_profiles researcher_profiles  @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model researcher_verifications {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profile_id          String                   @db.Uuid
+  status              verification_status_type
+  notes               String?
+  checklist           Json                     @default("{}")
+  verified_by         String?                  @db.Uuid
+  verified_at         DateTime?                @db.Timestamptz(6)
+  created_at          DateTime                 @default(now()) @db.Timestamptz(6)
+  researcher_profiles researcher_profiles      @relation(fields: [profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users?                   @relation(fields: [verified_by], references: [id], onUpdate: NoAction)
+
+  @@index([profile_id, created_at(sort: Desc)], map: "researcher_verifications_profile_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model review_criteria {
+  code                 String                 @id @db.VarChar(80)
+  name                 String                 @db.VarChar(180)
+  category             String                 @db.VarChar(120)
+  weight               Decimal                @db.Decimal(5, 2)
+  minimum_score        Int                    @default(1) @db.SmallInt
+  maximum_score        Int                    @default(100) @db.SmallInt
+  position             Int                    @db.SmallInt
+  is_active            Boolean                @default(true)
+  review_score_details review_score_details[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model review_score_details {
+  review_id          String             @db.Uuid
+  criteria_code      String             @db.VarChar(80)
+  score              Decimal            @db.Decimal(6, 2)
+  weighted_score     Decimal            @db.Decimal(8, 4)
+  notes              String?
+  review_criteria    review_criteria    @relation(fields: [criteria_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  submission_reviews submission_reviews @relation(fields: [review_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([review_id, criteria_code])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviewer_assignments {
+  id                                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  draft_id                                      String                          @db.Uuid
+  submission_id                                 String?                         @db.Uuid
+  reviewer_id                                   String                          @db.Uuid
+  review_round                                  Int                             @default(1)
+  status                                        reviewer_assignment_status_type @default(assigned)
+  assigned_by                                   String                          @db.Uuid
+  assigned_at                                   DateTime                        @default(now()) @db.Timestamptz(6)
+  due_at                                        DateTime?                       @db.Timestamptz(6)
+  started_at                                    DateTime?                       @db.Timestamptz(6)
+  submitted_at                                  DateTime?                       @db.Timestamptz(6)
+  revoked_at                                    DateTime?                       @db.Timestamptz(6)
+  revoked_by                                    String?                         @db.Uuid
+  revocation_reason                             String?
+  users_reviewer_assignments_assigned_byTousers users                           @relation("reviewer_assignments_assigned_byTousers", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  research_drafts                               research_drafts                 @relation(fields: [draft_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_reviewer_assignments_reviewer_idTousers users                           @relation("reviewer_assignments_reviewer_idTousers", fields: [reviewer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_reviewer_assignments_revoked_byTousers  users?                          @relation("reviewer_assignments_revoked_byTousers", fields: [revoked_by], references: [id], onUpdate: NoAction)
+  proposal_submissions                          proposal_submissions?           @relation(fields: [submission_id], references: [id], onUpdate: NoAction)
+  reviewer_reminders                            reviewer_reminders[]
+  submission_reviews                            submission_reviews?
+
+  @@unique([draft_id, reviewer_id, review_round])
+  @@index([reviewer_id, status, due_at], map: "reviewer_assignments_reviewer_status_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviewer_reminders {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id        String               @db.Uuid
+  sent_by              String               @db.Uuid
+  channel              String               @default("both") @db.VarChar(20)
+  message              String?
+  sent_at              DateTime             @default(now()) @db.Timestamptz(6)
+  reviewer_assignments reviewer_assignments @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                users                @relation(fields: [sent_by], references: [id], onUpdate: NoAction)
+
+  @@index([assignment_id, sent_at(sort: Desc)], map: "reviewer_reminders_assignment_sent_idx")
+}
+
+model roles {
+  code        role_type @id
+  name        String    @unique @db.VarChar(100)
+  description String?
+  users       users[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_attachment_requirements {
+  id                           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme_id                    String        @db.Uuid
+  category                     String        @db.VarChar(100)
+  name                         String        @db.VarChar(220)
+  accepted_extensions          String        @db.VarChar(255)
+  template_accepted_extensions String?       @db.VarChar(255)
+  is_required                  Boolean       @default(true)
+  is_custom                    Boolean       @default(false)
+  template_file_id             String?       @db.Uuid
+  position                     Int           @db.SmallInt
+  created_at                   DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime      @default(now()) @db.Timestamptz(6)
+  draft_files                  draft_files[]
+  schemes                      schemes       @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  stored_files                 stored_files? @relation(fields: [template_file_id], references: [id], onUpdate: NoAction)
+
+  @@unique([scheme_id, category])
+}
+
+model scheme_eligible_users {
+  scheme_id          String   @db.Uuid
+  user_id            String   @db.Uuid
+  eligibility_source String   @default("manual") @db.VarChar(30)
+  evaluated_at       DateTime @default(now()) @db.Timestamptz(6)
+  schemes            schemes  @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([scheme_id, user_id])
+  @@index([user_id, scheme_id], map: "scheme_eligible_users_user_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_filter_rules {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme_id  String   @db.Uuid
+  field_name String   @db.VarChar(100)
+  operator   String   @db.VarChar(30)
+  value      Json
+  position   Int      @default(1) @db.SmallInt
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users?   @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  schemes    schemes  @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_output_options {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme_id     String          @db.Uuid
+  name          String          @db.VarChar(220)
+  category      String          @db.VarChar(80)
+  configuration Json            @default("{}")
+  position      Int             @db.SmallInt
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  draft_outputs draft_outputs[]
+  schemes       schemes         @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([scheme_id, position])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_registration_extensions {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme_id         String   @db.Uuid
+  previous_deadline DateTime @db.Timestamptz(6)
+  new_deadline      DateTime @db.Timestamptz(6)
+  reason            String?
+  opened_by         String   @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  users             users    @relation(fields: [opened_by], references: [id], onUpdate: NoAction)
+  schemes           schemes  @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_reporting_period_extensions {
+  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  period_id                String                   @db.Uuid
+  previous_deadline        DateTime                 @db.Timestamptz(6)
+  new_deadline             DateTime                 @db.Timestamptz(6)
+  reason                   String?
+  opened_by                String                   @db.Uuid
+  created_at               DateTime                 @default(now()) @db.Timestamptz(6)
+  users                    users                    @relation(fields: [opened_by], references: [id], onUpdate: NoAction)
+  scheme_reporting_periods scheme_reporting_periods @relation(fields: [period_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheme_reporting_periods {
+  id                                 String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme_id                          String                               @db.Uuid
+  report_type                        report_type
+  label                              String                               @db.VarChar(180)
+  open_at                            DateTime                             @db.Timestamptz(6)
+  due_at                             DateTime                             @db.Timestamptz(6)
+  position                           Int                                  @db.SmallInt
+  created_by                         String?                              @db.Uuid
+  version                            Int                                  @default(1)
+  created_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  research_monev                     research_monev[]
+  research_reports                   research_reports[]
+  scheme_reporting_period_extensions scheme_reporting_period_extensions[]
+  users                              users?                               @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  schemes                            schemes                              @relation(fields: [scheme_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([scheme_id, position])
+  @@index([scheme_id, open_at, due_at], map: "scheme_reporting_period_window_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model schemes {
+  id                              String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                            String                           @db.VarChar(220)
+  description                     String
+  start_date                      DateTime                         @db.Date
+  end_date                        DateTime                         @db.Date
+  registration_start_at           DateTime                         @db.Timestamptz(6)
+  registration_end_at             DateTime                         @db.Timestamptz(6)
+  year                            Int                              @db.SmallInt
+  maximum_budget                  Decimal                          @db.Decimal(16, 2)
+  status                          scheme_status_type               @default(draft)
+  filters                         Json                             @default("{}")
+  created_by                      String                           @db.Uuid
+  version                         Int                              @default(1)
+  published_at                    DateTime?                        @db.Timestamptz(6)
+  archived_at                     DateTime?                        @db.Timestamptz(6)
+  deleted_at                      DateTime?                        @db.Timestamptz(6)
+  deleted_by                      String?                          @db.Uuid
+  created_at                      DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime                         @default(now()) @db.Timestamptz(6)
+  funded_research                 funded_research[]
+  research_drafts                 research_drafts[]
+  scheme_attachment_requirements  scheme_attachment_requirements[]
+  scheme_eligible_users           scheme_eligible_users[]
+  scheme_filter_rules             scheme_filter_rules[]
+  scheme_output_options           scheme_output_options[]
+  scheme_registration_extensions  scheme_registration_extensions[]
+  scheme_reporting_periods        scheme_reporting_periods[]
+  users_schemes_created_byTousers users                            @relation("schemes_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  users_schemes_deleted_byTousers users?                           @relation("schemes_deleted_byTousers", fields: [deleted_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([status, registration_start_at, registration_end_at], map: "schemes_status_registration_idx")
+  @@index([year(sort: Desc)])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sdg_goals {
+  id                     Int                      @id @db.SmallInt
+  name                   String                   @unique @db.VarChar(160)
+  draft_project_sdgs     draft_project_sdgs[]
+  external_research_sdgs external_research_sdgs[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model stored_files {
+  id                                                                   String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_user_id                                                        String?                          @db.Uuid
+  storage_provider                                                     String                           @default("local") @db.VarChar(40)
+  storage_key                                                          String                           @unique
+  file_url                                                             String?
+  original_name                                                        String                           @db.VarChar(255)
+  mime_type                                                            String                           @db.VarChar(160)
+  extension                                                            String?                          @db.VarChar(20)
+  size_bytes                                                           BigInt
+  checksum_sha256                                                      String?                          @db.VarChar(64)
+  status                                                               file_status_type                 @default(ready)
+  metadata                                                             Json                             @default("{}")
+  uploaded_at                                                          DateTime                         @default(now()) @db.Timestamptz(6)
+  deleted_at                                                           DateTime?                        @db.Timestamptz(6)
+  draft_files                                                          draft_files[]
+  external_research_files                                              external_research_files[]
+  external_research_outputs                                            external_research_outputs[]
+  funding_letters                                                      funding_letters[]
+  generated_letters                                                    generated_letters[]
+  letter_files                                                         letter_files[]
+  letter_requests                                                      letter_requests[]
+  logbook_files                                                        logbook_files[]
+  previous_ethics_clearances                                           previous_ethics_clearances[]
+  research_contracts_research_contracts_signed_file_idTostored_files   research_contracts[]             @relation("research_contracts_signed_file_idTostored_files")
+  research_contracts_research_contracts_template_file_idTostored_files research_contracts[]             @relation("research_contracts_template_file_idTostored_files")
+  research_monev_files                                                 research_monev_files[]
+  research_report_files                                                research_report_files[]
+  researcher_documents                                                 researcher_documents[]
+  researcher_profiles                                                  researcher_profiles[]
+  scheme_attachment_requirements                                       scheme_attachment_requirements[]
+  users                                                                users?                           @relation(fields: [owner_user_id], references: [id], onUpdate: NoAction)
+
+  @@index([owner_user_id, uploaded_at(sort: Desc)], map: "stored_files_owner_idx")
+  @@index([status])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model submission_reviews {
+  id                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id        String                     @unique @db.Uuid
+  recommendation       review_recommendation_type
+  total_score          Decimal                    @db.Decimal(6, 2)
+  strengths            String?
+  weaknesses           String?
+  budget_notes         String?
+  output_notes         String?
+  revision_notes       String?
+  submitted_at         DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                   @default(now()) @db.Timestamptz(6)
+  review_score_details review_score_details[]
+  reviewer_assignments reviewer_assignments       @relation(fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model system_activity_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  request_id  String?  @db.VarChar(180)
+  user_id     String?  @db.Uuid
+  action      String   @db.VarChar(120)
+  entity_type String   @db.VarChar(100)
+  entity_id   String?  @db.Uuid
+  old_data    Json?
+  new_data    Json?
+  ip_address  String?  @db.Inet
+  user_agent  String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([entity_type, entity_id, created_at(sort: Desc)], map: "system_activity_logs_entity_idx")
+  @@index([user_id, created_at(sort: Desc)], map: "system_activity_logs_user_idx")
+}
+
+model user_admin_scopes {
+  id                                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                    String           @db.Uuid
+  scope                                      admin_scope_type
+  assigned_by                                String?          @db.Uuid
+  assigned_at                                DateTime         @default(now()) @db.Timestamptz(6)
+  users_user_admin_scopes_assigned_byTousers users?           @relation("user_admin_scopes_assigned_byTousers", fields: [assigned_by], references: [id], onUpdate: NoAction)
+  admin_scopes                               admin_scopes     @relation(fields: [scope], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  users_user_admin_scopes_user_idTousers     users            @relation("user_admin_scopes_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, scope])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model user_sessions {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  ip_address String?   @db.Inet
+  user_agent String?
+  expires_at DateTime  @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  mfa_verified_at DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, expires_at(sort: Desc)], map: "user_sessions_user_expiry_idx")
+}
+
+model user_mfa {
+  user_id           String    @id @db.Uuid
+  secret_ciphertext String
+  confirmed_at      DateTime? @db.Timestamptz(6)
+  last_used_step    BigInt    @default(-1)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model users {
+  id                                                                     String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                                  String                               @db.VarChar(320)
+  password_hash                                                          String
+  name                                                                   String                               @db.VarChar(180)
+  role                                                                   role_type
+  is_active                                                              Boolean                              @default(true)
+  applicant_enabled                                                      Boolean                              @default(false)
+  default_mode                                                           String?                              @db.VarChar(20)
+  identifier                                                             String?                              @db.VarChar(80)
+  activation_token_hash                                                  String?
+  activation_expires_at                                                  DateTime?                            @db.Timestamptz(6)
+  last_login_at                                                          DateTime?                            @db.Timestamptz(6)
+  password_changed_at                                                    DateTime?                            @db.Timestamptz(6)
+  deactivation_reason                                                    String?
+  deactivated_by                                                         String?                              @db.Uuid
+  deactivated_at                                                         DateTime?                            @db.Timestamptz(6)
+  created_by                                                             String?                              @db.Uuid
+  version                                                                Int                                  @default(1)
+  created_at                                                             DateTime                             @default(now()) @db.Timestamptz(6)
+  updated_at                                                             DateTime                             @default(now()) @db.Timestamptz(6)
+  account_tokens                                                         account_tokens[]
+  admin_assignments_admin_assignments_admin_idTousers                    admin_assignments[]                  @relation("admin_assignments_admin_idTousers")
+  admin_assignments_admin_assignments_assigned_byTousers                 admin_assignments[]                  @relation("admin_assignments_assigned_byTousers")
+  applicant_profiles                                                     applicant_profiles[]
+  draft_files                                                            draft_files[]
+  draft_members                                                          draft_members[]
+  email_outbox                                                           email_outbox[]
+  external_research_external_research_created_byTousers                  external_research[]                  @relation("external_research_created_byTousers")
+  external_research_external_research_reviewed_byTousers                 external_research[]                  @relation("external_research_reviewed_byTousers")
+  external_research_external_research_user_idTousers                     external_research[]                  @relation("external_research_user_idTousers")
+  external_research_files                                                external_research_files[]
+  external_research_history                                              external_research_history[]
+  external_research_reviews                                              external_research_reviews[]
+  funded_research_funded_research_created_byTousers                      funded_research[]                    @relation("funded_research_created_byTousers")
+  funded_research_funded_research_lead_user_idTousers                    funded_research[]                    @relation("funded_research_lead_user_idTousers")
+  funded_review_assignments_funded_review_assignments_assigned_byTousers funded_review_assignments[]          @relation("funded_review_assignments_assigned_byTousers")
+  funded_review_assignments_funded_review_assignments_reviewer_idTousers funded_review_assignments[]          @relation("funded_review_assignments_reviewer_idTousers")
+  funded_review_assignments_funded_review_assignments_revoked_byTousers  funded_review_assignments[]          @relation("funded_review_assignments_revoked_byTousers")
+  funded_reviewer_reminders                                              funded_reviewer_reminders[]
+  funding_letters                                                        funding_letters[]
+  generated_letters                                                      generated_letters[]
+  idempotency_keys                                                       idempotency_keys[]
+  letter_applicants                                                      letter_applicants[]
+  letter_definitions_letter_definitions_deleted_byTousers                letter_definitions[]                 @relation("letter_definitions_deleted_byTousers")
+  letter_definitions_letter_definitions_updated_byTousers                letter_definitions[]                 @relation("letter_definitions_updated_byTousers")
+  letter_master_templates                                                letter_master_templates[]
+  letter_prechecks                                                       letter_prechecks[]
+  letter_request_templates                                               letter_request_templates[]
+  letter_request_values                                                  letter_request_values[]
+  letter_requests_letter_requests_accepted_byTousers                     letter_requests[]                    @relation("letter_requests_accepted_byTousers")
+  letter_requests_letter_requests_configured_byTousers                   letter_requests[]                    @relation("letter_requests_configured_byTousers")
+  letter_requests_letter_requests_created_byTousers                      letter_requests[]                    @relation("letter_requests_created_byTousers")
+  letter_requests_letter_requests_user_idTousers                         letter_requests[]                    @relation("letter_requests_user_idTousers")
+  letter_reviews                                                         letter_reviews[]
+  letter_status_history                                                  letter_status_history[]
+  notifications_notifications_from_user_idTousers                        notifications[]                      @relation("notifications_from_user_idTousers")
+  notifications_notifications_user_idTousers                             notifications[]                      @relation("notifications_user_idTousers")
+  previous_ethics_clearances                                             previous_ethics_clearances[]
+  proposal_decisions                                                     proposal_decisions[]
+  proposal_submissions                                                   proposal_submissions[]
+  proposal_verifications                                                 proposal_verifications[]
+  report_reviews                                                         report_reviews[]
+  research_contracts                                                     research_contracts[]
+  research_drafts_research_drafts_archived_byTousers                     research_drafts[]                    @relation("research_drafts_archived_byTousers")
+  research_drafts_research_drafts_created_byTousers                      research_drafts[]                    @relation("research_drafts_created_byTousers")
+  research_drafts_research_drafts_user_idTousers                         research_drafts[]                    @relation("research_drafts_user_idTousers")
+  research_logbooks                                                      research_logbooks[]
+  research_monev                                                         research_monev[]
+  research_reports                                                       research_reports[]
+  researcher_documents                                                   researcher_documents[]
+  researcher_profiles_researcher_profiles_last_updated_byTousers         researcher_profiles[]                @relation("researcher_profiles_last_updated_byTousers")
+  researcher_profiles_researcher_profiles_user_idTousers                 researcher_profiles?                 @relation("researcher_profiles_user_idTousers")
+  researcher_status_history                                              researcher_status_history[]
+  researcher_verifications                                               researcher_verifications[]
+  reviewer_assignments_reviewer_assignments_assigned_byTousers           reviewer_assignments[]               @relation("reviewer_assignments_assigned_byTousers")
+  reviewer_assignments_reviewer_assignments_reviewer_idTousers           reviewer_assignments[]               @relation("reviewer_assignments_reviewer_idTousers")
+  reviewer_assignments_reviewer_assignments_revoked_byTousers            reviewer_assignments[]               @relation("reviewer_assignments_revoked_byTousers")
+  reviewer_reminders                                                     reviewer_reminders[]
+  scheme_eligible_users                                                  scheme_eligible_users[]
+  scheme_filter_rules                                                    scheme_filter_rules[]
+  scheme_registration_extensions                                         scheme_registration_extensions[]
+  scheme_reporting_period_extensions                                     scheme_reporting_period_extensions[]
+  scheme_reporting_periods                                               scheme_reporting_periods[]
+  schemes_schemes_created_byTousers                                      schemes[]                            @relation("schemes_created_byTousers")
+  schemes_schemes_deleted_byTousers                                      schemes[]                            @relation("schemes_deleted_byTousers")
+  stored_files                                                           stored_files[]
+  system_activity_logs                                                   system_activity_logs[]
+  user_admin_scopes_user_admin_scopes_assigned_byTousers                 user_admin_scopes[]                  @relation("user_admin_scopes_assigned_byTousers")
+  user_admin_scopes_user_admin_scopes_user_idTousers                     user_admin_scopes[]                  @relation("user_admin_scopes_user_idTousers")
+  user_sessions                                                          user_sessions[]
+  user_mfa                                                               user_mfa?
+  users_users_created_byTousers                                          users?                               @relation("users_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  other_users_users_created_byTousers                                    users[]                              @relation("users_created_byTousers")
+  users_users_deactivated_byTousers                                      users?                               @relation("users_deactivated_byTousers", fields: [deactivated_by], references: [id], onUpdate: NoAction)
+  other_users_users_deactivated_byTousers                                users[]                              @relation("users_deactivated_byTousers")
+  roles                                                                  roles                                @relation(fields: [role], references: [code], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([role, is_active], map: "users_role_active_idx")
+}
+
+enum admin_scope_type {
+  research_management
+  letter_management
+  researcher_profile_management
+}
+
+enum contract_status_type {
+  unsigned
+  signed
+  revision_required
+  accepted
+}
+
+enum external_research_status_type {
+  draft
+  submitted
+  under_review
+  revision_requested
+  validated
+  archived
+}
+
+enum file_status_type {
+  pending
+  ready
+  quarantined
+  deleted
+}
+
+enum final_decision_type {
+  funded
+  revision
+  rejected
+}
+
+enum funded_review_target_type {
+  monev
+  report
+}
+
+enum letter_status_type {
+  draft
+  submitted
+  form_design
+  data_required
+  data_submitted
+  draft_revision
+  prechecked
+  revision_required
+  approved
+  rejected
+  generated
+}
+
+enum member_role_type {
+  ketua
+  member
+  anggota
+}
+
+enum member_type {
+  internal_lecturer
+  external_lecturer
+  student
+  staff
+  other
+}
+
+enum notification_priority_type {
+  low
+  normal
+  high
+  critical
+}
+
+enum outbox_status_type {
+  queued
+  processing
+  sent
+  failed
+  cancelled
+}
+
+enum output_kind_type {
+  wajib
+  tambahan
+}
+
+enum profile_status_type {
+  draft
+  active
+  inactive
+  suspended
+}
+
+enum proposal_status_type {
+  draft
+  submitted
+  under_review
+  reviewed
+  revision
+  funded
+  rejected
+  cancelled
+  archived
+}
+
+enum report_status_type {
+  not_open
+  open
+  draft
+  submitted
+  under_review
+  revision_required
+  accepted
+  rejected
+  overdue
+}
+
+enum report_type {
+  interim
+  final
+  output
+}
+
+enum review_recommendation_type {
+  approve
+  revision
+  reject
+}
+
+enum reviewer_assignment_status_type {
+  assigned
+  in_progress
+  submitted
+  completed
+  revoked
+}
+
+enum role_type {
+  super_admin
+  manager
+  admin
+  lecturer
+}
+
+enum scheme_status_type {
+  draft
+  published
+  open
+  closed
+  active
+  completed
+  archived
+}
+
+enum verification_status_type {
+  unverified
+  pending
+  verified
+  rejected
+}

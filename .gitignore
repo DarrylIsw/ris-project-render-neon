@@ -1,0 +1,17 @@
+# Don't check auto-generated stuff into git
+coverage
+build
+node_modules
+stats.json
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.render.example
+var/uploads/
+
+# Cruft
+.DS_Store
+npm-debug.log
+.codex-*.log
+.idea

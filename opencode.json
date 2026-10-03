@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "hive": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Hive",
+      "options": {
+        "baseURL": "https://api-cdn.thehive.ai/api/v3"
+      },
+      "models": {
+        "zai-org/glm-5.3-flash": {
+          "name": "GLM 5.3 Flash"
+        },
+        "deepseek-ai/deepseek-v4.1-flash": {
+          "name": "DeepSeek v4.1 Flash"
+        }
+      }
+    }
+  }
+}
