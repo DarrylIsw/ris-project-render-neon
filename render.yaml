@@ -1,11 +1,11 @@
 services:
   - type: web
     name: ris-project-render-neon
-    runtime: docker
+    runtime: node
     region: singapore
     plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build && npm prune --omit=dev --ignore-scripts
+    startCommand: node internals/scripts/start-render.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
