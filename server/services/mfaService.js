@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 
-const requiredFor = role => (process.env.NODE_ENV === 'production' || process.env.MFA_REQUIRED === 'true')
+// MFA remains available as an explicit hardening option, but must never be
+// enabled implicitly just because the application runs in production.
+const requiredFor = role => process.env.MFA_REQUIRED === 'true'
   && ['super_admin', 'manager', 'admin'].includes(role);
 const secretKey = () => Buffer.from(process.env.MFA_ENCRYPTION_KEY || '', 'hex');
 const encrypt = secret => {

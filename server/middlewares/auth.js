@@ -23,7 +23,7 @@ const optionalUser = async (req, res, next) => {
         revoked_at: true,
         expires_at: true,
         users: true,
-        ...(process.env.NODE_ENV === 'production' || process.env.MFA_REQUIRED === 'true' ? { mfa_verified_at: true } : {}),
+        ...(requiredFor(session.users.role) ? { mfa_verified_at: true } : {}),
       },
     });
     if (!session || session.revoked_at || session.expires_at <= new Date() || !session.users.is_active) return next();

@@ -86,11 +86,13 @@ app.get('*.js', (req, res, next) => {
 
 const validateProductionDatabase = async () => {
   if (process.env.NODE_ENV !== 'production') return;
-  try {
-    await prisma.user_mfa.count();
-    await prisma.user_sessions.findFirst({ select: { mfa_verified_at: true } });
-  } catch (error) {
-    throw new Error('Jalankan migrasi prisma/migrations/20261001_security_mfa/migration.sql sebelum memulai server produksi.');
+  if (process.env.MFA_REQUIRED === 'true') {
+    try {
+      await prisma.user_mfa.count();
+      await prisma.user_sessions.findFirst({ select: { mfa_verified_at: true } });
+    } catch (error) {
+      throw new Error('Jalankan migrasi prisma/migrations/20261001_security_mfa/migration.sql sebelum mengaktifkan MFA.');
+    }
   }
   const weak = await prisma.$queryRaw`SELECT id FROM users WHERE is_active = true AND password_hash = crypt(${'password'}, password_hash) LIMIT 1`;
   if (weak.length) throw new Error('Akun demo masih memakai kata sandi bawaan. Ganti kata sandi sebelum menjalankan server produksi.');
