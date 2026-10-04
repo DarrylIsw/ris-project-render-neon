@@ -34,7 +34,7 @@ const main = async () => {
   } catch (error) {
     console.error(`[prisma] PRISMA_FAILED: ${JSON.stringify({
       name: error.name || 'Error',
-      code: error.code || null,
+      code: error.code || error.errorCode || null,
       clientVersion: error.clientVersion || null,
       message: safeText(error.message) || 'Unknown Prisma connection error',
       meta: error.meta ? safeText(JSON.stringify(error.meta)) : undefined,

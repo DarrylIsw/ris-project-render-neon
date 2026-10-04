@@ -5,7 +5,15 @@ ENV NODE_ENV=production \
     PORT=10000
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libreoffice-writer fontconfig fonts-dejavu-core fonts-liberation \
+    && apt-get install -y --no-install-recommends \
+       libreoffice-writer \
+       fontconfig \
+       fonts-dejavu-core \
+       fonts-liberation \
+       openssl \
+       ca-certificates \
+    && update-ca-certificates \
+    && printf '\nprecedence ::ffff:0:0/96  100\n' >> /etc/gai.conf \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
