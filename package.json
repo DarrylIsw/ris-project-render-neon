@@ -24,6 +24,7 @@
     "start": "cross-env NODE_ENV=development NODE_OPTIONS=--openssl-legacy-provider node index.js",
     "start:neon": "cross-env NODE_ENV=development NODE_OPTIONS=--openssl-legacy-provider DOTENV_CONFIG_PATH=.env.neon PORT=3002 node -r dotenv/config index.js",
     "diagnose:neon-network": "node internals/scripts/check-neon-network.js",
+    "diagnose:postgres": "node internals/scripts/check-postgres.js",
     "start:tunnel": "cross-env NODE_ENV=development ENABLE_TUNNEL=true node index.js",
     "start:production": "npm run test && npm run build && npm run start:prod",
     "start:prod": "cross-env NODE_ENV=production node index.js",
