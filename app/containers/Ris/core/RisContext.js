@@ -282,7 +282,7 @@ export function RisProvider({ children }) {
     toasts, showToast, dismissToast, markNotificationRead, markNotificationsRead
   }), [data, dismissToast, showToast, toasts, user]);
 
-  if (!ready) return <div className="ris-page-loading" role="status">Memuat data...</div>;
+  if (!ready) return <div className="ris-page-loading" role="status" aria-live="polite"><span />Memuat data...</div>;
   return <RisContext.Provider value={value}>{loadError ? <div className="ris-page"><button type="button" onClick={() => window.location.reload()}>Coba Lagi</button></div> : children}</RisContext.Provider>;
 }
 

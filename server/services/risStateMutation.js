@@ -1,5 +1,6 @@
 /* eslint-disable no-await-in-loop, no-restricted-syntax, no-continue */
 const { isDeepStrictEqual } = require('util');
+const { z } = require('zod');
 const prisma = require('../config/prisma');
 const {
   identity, loadState, resolveAccount, temporaryAssignmentsFor, VALUE_ID
@@ -10,6 +11,7 @@ const { appendServerEvents } = require('./risEventNotifications');
 const emailOutboxModel = require('../models/emailOutboxModel');
 
 const equal = isDeepStrictEqual;
+const accountEmailSchema = z.email().max(320);
 const forbidden = message => Object.assign(new Error(message), { status: 403, code: 'FORBIDDEN' });
 const conflict = () => Object.assign(new Error('Data telah diubah pengguna lain. Muat ulang halaman lalu coba lagi.'), { status: 409, code: 'DATA_CONFLICT' });
 const recordKey = (domain, entityId) => ({ domain_entity_id: { domain, entity_id: entityId } });
@@ -83,6 +85,14 @@ const saveState = async ({
       const prior = new Map(oldVisible.map((item, index) => [identity(item, index), item]));
       const proposed = new Map(desired.map((item, index) => [identity(item, index), item]));
       if (proposed.size !== desired.length) throw forbidden('ID data duplikat.');
+      if (domain === 'systemUsers') {
+        for (const [key, item] of proposed) {
+          const existing = prior.get(key);
+          if ((!existing || existing.email !== item.email) && !accountEmailSchema.safeParse(item.email).success) {
+            throw forbidden('Format alamat email akun tidak valid.');
+          }
+        }
+      }
       for (const [key, item] of prior) {
         const newItem = proposed.get(key);
         if (!equal(item, newItem) && !canChange(domain, item, newItem, account, previous, { trusted: trustedDomainSet.has(domain) })) throw forbidden(`Tidak dapat mengubah ${domain}.`);

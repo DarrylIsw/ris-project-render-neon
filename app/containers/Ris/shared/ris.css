@@ -436,13 +436,20 @@ button:disabled { cursor: not-allowed; }
 .ris-budget-item-errors { margin: 0 0 14px; color: #b91c1c; font-size: 12px; font-weight: 700; line-height: 1.5; }
 
 .ris-page-loading {
-  min-height: 240px;
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 24px;
   color: #475569;
+  background: var(--ris-bg, #f8fafc);
   font-weight: 600;
+  text-align: center;
 }
 
 .ris-page-loading > span {
@@ -474,8 +481,8 @@ button:disabled { cursor: not-allowed; }
 .ris-error-boundary h1 { margin: 0 0 8px; font-size: 24px; }
 .ris-error-boundary p { margin: 0 0 20px; color: #64748b; }
 .ris-error-boundary button { padding: 10px 16px; border: 0; border-radius: 6px; background: #0f766e; color: #fff; font-weight: 700; cursor: pointer; }
-.ris-not-found-page { min-height: 100%; display: grid; place-items: center; padding: 32px 20px; color: #334155; background: #f8fafc; text-align: center; }
-.ris-not-found-page.inside-layout { min-height: 100%; }
+.ris-not-found-page { position: fixed; z-index: 10000; inset: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; overflow-y: auto; padding: 32px 20px; color: #334155; background: #f8fafc; text-align: center; }
+.ris-not-found-page.inside-layout { min-height: 100vh; min-height: 100dvh; }
 .ris-not-found-page > section { width: min(100%, 480px); }
 .ris-not-found-code { display: block; margin-bottom: 8px; color: #2563eb; font-size: 14px; font-weight: 800; }
 .ris-not-found-page h1 { margin: 0 0 8px; color: #0f172a; font-size: 24px; line-height: 1.3; }

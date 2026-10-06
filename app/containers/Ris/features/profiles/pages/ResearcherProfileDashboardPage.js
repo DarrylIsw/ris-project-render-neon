@@ -1,5 +1,6 @@
 /* eslint-disable object-curly-newline, object-property-newline, no-multiple-empty-lines, prefer-destructuring, no-use-before-define, react/prop-types */
 import React, { useMemo, useState } from 'react';
+import { z } from 'zod';
 import { useHistory } from 'react-router-dom';
 import {
   ADMIN_SCOPE_OPTIONS, ALL_ADMIN_SCOPES, ROLE, ROLE_LABELS, hasFullAccess
@@ -41,6 +42,7 @@ const defaultFilters = {
 const emptyAccountForm = {
   fullName: '', institutionEmail: '', role: ROLE.LECTURER, password: ''
 };
+const accountEmailSchema = z.email().max(320);
 
 export default function ResearcherProfileDashboardPage() {
   const { data, setData, user } = useRis();
@@ -97,7 +99,7 @@ export default function ResearcherProfileDashboardPage() {
       setCreateError('Lengkapi seluruh field wajib sebelum membuat akun.');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
+    if (!accountEmailSchema.safeParse(cleanedEmail).success) {
       setCreateError('Masukkan alamat email institusi yang valid.');
       return;
     }
@@ -367,7 +369,7 @@ export default function ResearcherProfileDashboardPage() {
                 setForm({ ...form, role: event.target.value });
               }}><option value={ROLE.LECTURER}>Dosen</option><option value={ROLE.ADMIN}>Administrator</option></select></Field>}
               <Field label="Nama Lengkap" required><input value={form.fullName} onChange={event => setForm({ ...form, fullName: event.target.value })} /></Field>
-              <Field label="Email Institusi" required><input type="email" autoComplete="email" value={form.institutionEmail} onChange={event => setForm({ ...form, institutionEmail: event.target.value })} /></Field>
+              <Field label="Email Institusi" required><input type="email" autoComplete="email" maxLength={320} autoCapitalize="none" spellCheck={false} value={form.institutionEmail} onChange={event => setForm({ ...form, institutionEmail: event.target.value })} /></Field>
               <Field label="Kata Sandi Awal" required><input type="password" minLength={12} autoComplete="new-password" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} /></Field>
             </div>
             <div className="ris-modal-actions"><Button tone="gray" onClick={() => { setCreateError(''); setShowCreate(false); }}>Batal</Button><Button tone="green" onClick={createUser}>Buat Akun</Button></div>
